@@ -1,0 +1,45 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+
+# Install .NET
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '8.x'
+
+# Restore
+- script: dotnet restore
+  displayName: 'Restore'
+
+# Build
+- script: dotnet build --configuration $(buildConfiguration)
+  displayName: 'Build'
+
+# Test
+- script: dotnet test --configuration $(buildConfiguration) --no-build
+  displayName: 'Test'
+
+# Publish (ZIP IMPORTANT)
+- task: DotNetCoreCLI@2
+  displayName: 'Publish API'
+  inputs:
+    command: 'publish'
+    publishWebProjects: false
+    projects: 'ExpenseTracker.API/ExpenseTracker.API.csproj'
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+    zipAfterPublish: true
+
+# Deploy to Azure
+- task: AzureWebApp@1
+  inputs:
+    azureSubscription: 'expensetracker-connection'
+    appName: 'expensetracker-api-kavi'
+    package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
